@@ -1,0 +1,5 @@
+{
+  "name": "Fuel Tracker Map",
+  "description": "A live map application that tracks fuel levels in shops, translated to Burmese.",
+  "requestFramePermissions": []
+}
