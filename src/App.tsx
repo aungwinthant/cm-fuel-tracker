@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Fuel, MapPin, Clock, Moon, Sun, Map as MapIcon, List as ListIcon, RefreshCcw } from 'lucide-react';
+import { Fuel, MapPin, Clock, Moon, Sun, Map as MapIcon, List as ListIcon, RefreshCcw, ChevronDown, Check, X, AlertTriangle } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 // Fix for default marker icons in React-Leaflet
@@ -60,20 +60,20 @@ const statusTranslations: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  'มี': 'text-green-700 bg-green-100 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800',
-  'หมด': 'text-red-700 bg-red-100 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800',
-  'รอส่ง': 'text-yellow-700 bg-yellow-100 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800',
-  '': 'text-gray-600 bg-gray-100 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700',
+  'มี': 'text-white bg-green-500 border-green-600 dark:bg-green-600 dark:border-green-700',
+  'หมด': 'text-white bg-red-500 border-red-600 dark:bg-red-600 dark:border-red-700',
+  'รอส่ง': 'text-white bg-yellow-500 border-yellow-600 dark:bg-yellow-600 dark:border-yellow-700',
+  '': 'text-white bg-gray-500 border-gray-600 dark:bg-gray-600 dark:border-gray-700',
 };
 
 const fuelTypes: Record<string, string> = {
-  'diesel_premium': 'ပရီမီယံ ဒီဇယ်',
+  'diesel_premium': 'ဒီဇယ် ပရီမီယံ',
   'diesel': 'ဒီဇယ်',
   'diesel_b10': 'ဒီဇယ် B10',
   'diesel_b20': 'ဒီဇယ် B20',
   'benzine': 'ဓာတ်ဆီ',
-  'g95': 'ဂက်စ်ဆိုဟော ၉၅',
-  'g91': 'ဂက်စ်ဆိုဟော ၉၁',
+  'g95': '95',
+  'g91': '91',
   'e20': 'E20',
   'e85': 'E85',
 };
@@ -140,14 +140,14 @@ interface PriceData {
 }
 
 const priceLabels: Record<string, string> = {
-  diesel_premium: 'ဒီဇယ် ပရီမီယံ',
-  diesel: 'ဒီဇယ်',
-  diesel_b10: 'ဒီဇယ် B10',
-  diesel_b20: 'ဒီဇယ် B20',
-  benzine: 'ဓာတ်ဆီ',
-  g95: 'ဂက်စ်ဆိုဟော ၉၅',
-  g95_premium: 'ဂက်စ်ဆိုဟော ၉၅ ပရီမီယံ',
-  g91: 'ဂက်စ်ဆိုဟော ၉၁',
+  diesel_premium: 'Premium Diesel',
+  diesel: 'Diesel',
+  diesel_b10: 'Diesel B10',
+  diesel_b20: 'Diesel B20',
+  benzine: 'Benzine',
+  g95: '95',
+  g95_premium: 'Premium 95',
+  g91: '91',
   e20: 'E20',
   e85: 'E85',
 };
@@ -231,6 +231,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'map' | 'prices'>('map');
   const [isOffline, setIsOffline] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -263,25 +264,27 @@ export default function App() {
       let cachedPrices = null;
 
       if (!forceRefresh) {
-        const { data: cache, error: supabaseError } = await supabase
-          .from('api_cache')
-          .select('data, updated_at')
-          .eq('id', 'fuel_data')
-          .single();
+        try {
+          const { data: cache, error: supabaseError } = await supabase
+            .from('api_cache')
+            .select('data, updated_at')
+            .eq('id', 'fuel_data')
+            .single();
 
-        if (cache && !supabaseError) {
-          const updatedAt = new Date(cache.updated_at).getTime();
-          const now = new Date().getTime();
-          const fifteenMinutes = 15 * 60 * 1000;
+          if (cache && !supabaseError) {
+            const updatedAt = new Date(cache.updated_at).getTime();
+            const now = new Date().getTime();
+            const fifteenMinutes = 15 * 60 * 1000;
 
-          if (now - updatedAt < fifteenMinutes) {
-            if (cache.data) {
+            if (now - updatedAt < fifteenMinutes && cache.data) {
               setReports(cache.data.reports || []);
               setPriceData(cache.data.priceData || null);
               setLoading(false);
               return;
             }
           }
+        } catch (e) {
+          console.warn('Supabase read failed, bypassing cache...', e);
         }
       }
 
@@ -297,7 +300,7 @@ export default function App() {
         if (pricesResponse.ok) {
           crawledPrices = await pricesResponse.json();
         } else {
-          // Fallback to direct crawl if API is missing (e.g. local dev without vercel dev)
+          // Fallback to direct crawl if API is missing
           const mainPageResponse = await fetch('https://cm-pump.com/');
           if (mainPageResponse.ok) {
             const html = await mainPageResponse.text();
@@ -310,8 +313,7 @@ export default function App() {
           }
         }
       } catch (e) {
-        console.error('Error fetching prices from API, attempting fallback...', e);
-        // Fallback to direct crawl on fetch failure (e.g. 404 with no proxy)
+        console.warn('Price fetch failed, attempting fallback...', e);
         try {
           const mainPageResponse = await fetch('https://cm-pump.com/');
           if (mainPageResponse.ok) {
@@ -324,7 +326,7 @@ export default function App() {
             }
           }
         } catch(fe) {
-          console.error('Fallback crawling also failed:', fe);
+          console.error('Price fallback also failed:', fe);
         }
       }
 
@@ -332,16 +334,20 @@ export default function App() {
         setReports(reportsJson.reports);
         setPriceData(crawledPrices);
         
-        await supabase.from('api_cache').upsert({ 
-          id: 'fuel_data', 
-          data: {
-            reports: reportsJson.reports,
-            priceData: crawledPrices
-          }, 
-          updated_at: new Date().toISOString() 
-        }, { onConflict: 'id' });
+        try {
+          await supabase.from('api_cache').upsert({ 
+            id: 'fuel_data', 
+            data: {
+              reports: reportsJson.reports,
+              priceData: crawledPrices
+            }, 
+            updated_at: new Date().toISOString() 
+          }, { onConflict: 'id' });
+        } catch (e) {
+          console.warn('Supabase write failed:', e);
+        }
       } else {
-        throw new Error('Invalid format');
+        throw new Error('Invalid format from API');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -417,38 +423,61 @@ export default function App() {
             </div>
           ) : null}
 
-          {/* Brand Filter Bar */}
-          <div className="absolute top-4 left-0 right-0 z-[1001] px-4 overflow-x-auto no-scrollbar scroll-smooth flex items-center gap-2 pb-4">
-            <button
-              onClick={() => setSelectedBrand(null)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${
-                selectedBrand === null 
-                  ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200 dark:shadow-none scale-105' 
-                  : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              All Shops
-            </button>
-            {brands.map((brand) => (
+          {/* Brand Filter Dropdown */}
+          <div className="absolute top-4 left-4 z-[1001]">
+            <div className="relative">
               <button
-                key={brand}
-                onClick={() => setSelectedBrand(brand)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border flex items-center gap-2 ${
-                  selectedBrand === brand 
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200 dark:shadow-none scale-105' 
-                    : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700'
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-lg border ${
+                  selectedBrand 
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200 dark:shadow-none' 
+                    : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-gray-100 dark:border-slate-700 text-gray-700 dark:text-slate-100'
                 }`}
               >
-                {brandLogos[brand.toLowerCase()] && (
-                  <img 
-                    src={brandLogos[brand.toLowerCase()]} 
-                    alt={brand} 
-                    className="w-4 h-4 object-contain brightness-100 rounded-full" 
-                  />
+                {selectedBrand && brandLogos[selectedBrand.toLowerCase()] && (
+                  <img src={brandLogos[selectedBrand.toLowerCase()]} className="w-4 h-4 rounded-full bg-white p-0.5" alt={selectedBrand} />
                 )}
-                <span className="whitespace-nowrap uppercase tracking-tight">{brandNames[brand.toLowerCase()] || brand}</span>
+                <span>{selectedBrand ? (brandNames[selectedBrand.toLowerCase()] || selectedBrand) : 'ဆိုင်အားလုံး'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
               </button>
-            ))}
+
+              {isFilterOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-[-1]" 
+                    onClick={() => setIsFilterOpen(false)}
+                  />
+                  <div className="absolute top-full left-0 mt-2 w-56 max-h-[60vh] overflow-y-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 py-2 no-scrollbar animate-in fade-in zoom-in duration-200">
+                    <button
+                      onClick={() => { setSelectedBrand(null); setIsFilterOpen(false); }}
+                      className={`w-full px-4 py-3 text-left text-xs font-bold flex items-center justify-between transition-colors ${
+                        selectedBrand === null ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <span>ဆိုင်အားလုံး</span>
+                      {selectedBrand === null && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                    </button>
+                    {brands.map((brand) => (
+                      <button
+                        key={brand}
+                        onClick={() => { setSelectedBrand(brand); setIsFilterOpen(false); }}
+                        className={`w-full px-4 py-3 text-left text-xs font-bold flex items-center justify-between transition-colors ${
+                          selectedBrand === brand ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {brandLogos[brand.toLowerCase()] && (
+                            <img src={brandLogos[brand.toLowerCase()]} className="w-5 h-5 rounded-full bg-white p-0.5 border border-gray-100" alt={brand} />
+                          )}
+                          <span className="uppercase tracking-tight">{brandNames[brand.toLowerCase()] || brand}</span>
+                        </div>
+                        {selectedBrand === brand && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <MapContainer 
@@ -469,40 +498,52 @@ export default function App() {
             {filteredReports.map((report) => (
               <Marker key={report.id} position={[report.lat, report.lng]} icon={getBrandIcon(report.brand, getStationStatus(report))}>
                 <Popup className="custom-popup">
-                  <div className="p-0 min-w-[220px]">
-                    <h3 className="font-bold text-base mb-1 flex items-start gap-1.5 text-slate-900 dark:text-slate-100">
-                      <MapPin className="w-4 h-4 mt-1 flex-shrink-0 text-blue-600" />
-                      <span>{report.station_name || 'အမည်မသိ ဆိုင်'}</span>
+                  <div className="p-2 min-w-[240px] font-sans">
+                    <h3 className="font-bold text-[17px] text-[#2c3e50] dark:text-slate-100 mb-4 tracking-wide leading-tight">
+                      {brandNames[report.brand?.toLowerCase()] || report.brand || report.station_name || 'အမည်မသိ ဆိုင်'}
                     </h3>
                     
-                    {report.brand && (
-                      <div className="text-[10px] text-gray-500 dark:text-slate-400 mb-3 ml-5 uppercase tracking-wider font-semibold">
-                        {report.brand}
-                      </div>
-                    )}
+                    <div className="text-[11px] text-[#94a3b8] font-bold mb-3">
+                      ဆီအခြေအနေ
+                    </div>
 
-                    <div className="space-y-1.5 mb-3">
+                    <div className="space-y-3 mb-5">
                       {Object.entries(fuelTypes).map(([key, label]) => {
                         const statusRaw = report[key as keyof Report] as string | undefined;
                         if (statusRaw === undefined || statusRaw === null || statusRaw === '') return null;
                         
-                        const status = statusTranslations[statusRaw] || statusTranslations[''];
-                        const colorClass = statusColors[statusRaw] || statusColors[''];
+                        let Icon = AlertTriangle;
+                        let textClass = "text-[#94a3b8]";
+                        let statusText = "မသိရ";
+                        
+                        if (statusRaw === 'มี') {
+                          Icon = Check;
+                          textClass = "text-[#10b981]";
+                          statusText = "ရှိသည်";
+                        } else if (statusRaw === 'หมด') {
+                          Icon = X;
+                          textClass = "text-[#ef4444]";
+                          statusText = "ကုန်ပြီ";
+                        } else if (statusRaw === 'รอส่ง') {
+                          Icon = Clock;
+                          textClass = "text-[#f59e0b]";
+                          statusText = "စောင့်ဆိုင်း";
+                        }
                         
                         return (
-                          <div key={key} className="flex justify-between items-center text-xs border-b border-gray-100 dark:border-slate-700 pb-1.5 last:border-0 last:pb-0">
-                            <span className="text-gray-700 dark:text-slate-300 font-medium">{label}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-bold ${colorClass}`}>
-                              {status}
-                            </span>
+                          <div key={key} className="flex justify-between items-center">
+                            <span className="text-[13px] text-black dark:text-gray-100">{label}</span>
+                            <div className={`flex items-center gap-1 font-bold text-[12px] ${textClass}`}>
+                              {Icon !== AlertTriangle ? <Icon className="w-3.5 h-3.5 stroke-[3]" /> : <Icon className="w-3 h-3 fill-current stroke-0" />}
+                              <span>{statusText}</span>
+                            </div>
                           </div>
                         );
                       })}
                     </div>
 
-                    <div className="text-[9px] text-gray-400 dark:text-slate-500 text-right mt-2 flex items-center justify-end gap-1">
-                      <Clock className="w-2.5 h-2.5" />
-                      {report.ts_th}
+                    <div className="text-[10px] text-[#94a3b8] mb-1.5">
+                      အပ်ဒိတ် {report.ts_th}
                     </div>
                   </div>
                 </Popup>
