@@ -1,8 +1,40 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-primary: #2563eb;
+}
+
+:root {
+  --app-bg: #f9fafb;
+  --card-bg: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+}
+
+.dark {
+  --app-bg: #0f172a;
+  --card-bg: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 .leaflet-popup-content-wrapper {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
   border-radius: 0.75rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.leaflet-popup-tip {
+  background: var(--card-bg) !important;
 }
 
 .leaflet-popup-content {
@@ -12,4 +44,22 @@
 .custom-brand-icon {
   background: transparent;
   border: none;
+}
+
+/* Custom scrollbar for better look */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
 }
