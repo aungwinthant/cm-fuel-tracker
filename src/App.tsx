@@ -19,6 +19,17 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const UserIcon = L.divIcon({
+  className: 'custom-user-icon',
+  html: `<div class="relative flex items-center justify-center w-6 h-6">
+           <div class="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-60"></div>
+           <div class="relative w-4 h-4 bg-blue-600 border-2 border-white rounded-full shadow-lg"></div>
+         </div>`,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -14],
+});
+
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap();
   const [hasSetCenter, setHasSetCenter] = useState(false);
@@ -232,6 +243,35 @@ export default function App() {
   const [isOffline, setIsOffline] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  // Fetch User Location once on mount
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setUserLocation([lat, lng]);
+          
+          try {
+            await supabase.from('user_locations').insert([
+              { lat, lng, user_agent: navigator.userAgent }
+            ]);
+          } catch (err) {
+            console.error('Supabase write error for user location:', err);
+          }
+        },
+        (err) => {
+          console.warn('Geolocation error:', err.message);
+          setLocationError('Unable to get your location. Please check browser permissions.');
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -279,6 +319,7 @@ export default function App() {
             if (now - updatedAt < fifteenMinutes && cache.data) {
               setReports(cache.data.reports || []);
               setPriceData(cache.data.priceData || null);
+              setLastUpdated(new Date(cache.updated_at));
               setLoading(false);
               return;
             }
@@ -333,6 +374,7 @@ export default function App() {
       if (reportsJson.ok && reportsJson.reports) {
         setReports(reportsJson.reports);
         setPriceData(crawledPrices);
+        setLastUpdated(new Date());
         
         try {
           await supabase.from('api_cache').upsert({ 
@@ -363,9 +405,9 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const center: [number, number] = reports.length > 0 
-    ? [reports[0].lat, reports[0].lng] 
-    : [18.7883, 98.9853];
+  const center: [number, number] = userLocation 
+    ? userLocation 
+    : (reports.length > 0 ? [reports[0].lat, reports[0].lng] : [18.7883, 98.9853]);
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
@@ -374,7 +416,14 @@ export default function App() {
           <div className="bg-blue-600 p-1.5 rounded-lg shadow-blue-200 shadow-lg">
             <Fuel className="text-white w-5 h-5" />
           </div>
-          <h1 className="text-md font-bold text-gray-900 dark:text-slate-100 tracking-tight">ဆီဆိုင်မြေပုံ</h1>
+          <div className="flex flex-col">
+            <h1 className="text-[15px] leading-tight font-bold text-gray-900 dark:text-slate-100 tracking-tight">ဆီဆိုင်မြေပုံ</h1>
+            {lastUpdated && (
+              <span className="text-[9.5px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
+                Updated: {lastUpdated.toLocaleTimeString('my-MM', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
@@ -494,6 +543,17 @@ export default function App() {
                 : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               }
             />
+
+            {userLocation && (
+              <Marker position={userLocation} icon={UserIcon} zIndexOffset={1000}>
+                <Popup className="custom-popup">
+                  <div className="p-2 text-center min-w-[120px]">
+                    <h3 className="font-bold text-[14px] text-slate-800 dark:text-slate-100">သင်၏တည်နေရာ</h3>
+                    <p className="text-[10px] text-slate-500 mt-1">Your Location</p>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
             
             {filteredReports.map((report) => (
               <Marker key={report.id} position={[report.lat, report.lng]} icon={getBrandIcon(report.brand, getStationStatus(report))}>
@@ -542,9 +602,20 @@ export default function App() {
                       })}
                     </div>
 
-                    <div className="text-[10px] text-[#94a3b8] mb-1.5">
-                      အပ်ဒိတ် {report.ts_th}
+                    <div className="text-[10px] text-[#94a3b8] mb-3">
+                      Updated {report.ts_th}
                     </div>
+
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${report.lat},${report.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 w-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-800/40 text-blue-600 dark:text-blue-400 font-bold py-2.5 rounded-xl text-[13px] transition-colors border border-blue-100 dark:border-blue-800/50"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      Google Maps တွင်ကြည့်ရန်
+                    </a>
                   </div>
                 </Popup>
               </Marker>
