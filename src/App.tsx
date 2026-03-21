@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Fuel, MapPin, Clock, Moon, Sun, Map as MapIcon, List as ListIcon, RefreshCcw, ChevronDown, Check, X, AlertTriangle } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { Analytics } from '@vercel/analytics/react';
 
 // Fix for default marker icons in React-Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -647,6 +648,7 @@ export default function App() {
           </button>
         </div>
       </nav>
+      <Analytics />
     </div>
   );
 }
