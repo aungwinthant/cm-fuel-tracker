@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Fuel, MapPin, Clock, Moon, Sun, Map as MapIcon, List as ListIcon, RefreshCcw, ChevronDown, Check, X, AlertTriangle } from 'lucide-react';
+import { Fuel, MapPin, Clock, Moon, Sun, Map as MapIcon, List as ListIcon, RefreshCcw, ChevronDown, Check, X, AlertTriangle, Info } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 // Fix for default marker icons in React-Leaflet
@@ -96,6 +96,7 @@ const brandLogos: Record<string, string> = {
   'pttt': 'https://cm-pump.com/ptt.png',
   'pt': 'https://cm-pump.com/pt.png',
   'shell': 'https://cm-pump.com/shell.png',
+  'cosmo': 'https://cm-pump.com/cosmo.png',
 };
 
 const getStationStatus = (report: Report): 'available' | 'empty' | 'low' | 'unknown' => {
@@ -169,6 +170,7 @@ const brandNames: Record<string, string> = {
   shell: 'Shell',
   caltex: 'Caltex',
   pt: 'PT',
+  cosmo: 'Cosmo',
 };
 
 function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
@@ -186,7 +188,9 @@ function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
       <div className="p-4 overflow-y-auto space-y-4 pb-24">
         <div className="bg-blue-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-200 dark:shadow-none mb-2">
           <div className="text-xs opacity-80 uppercase tracking-widest font-bold mb-1">နောက်ဆုံးအပ်ဒိတ်</div>
-          <div className="text-xl font-bold">{priceData.date_short || priceData.effective_date}</div>
+          <div className="text-xl font-bold">
+            {new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}
+          </div>
           <div className="text-[10px] opacity-60 mt-2 flex items-center gap-1">
             <Clock className="w-3 h-3" /> Source: {priceData.source}
           </div>
@@ -246,6 +250,7 @@ export default function App() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
 
   // Fetch User Location once on mount
   useEffect(() => {
@@ -288,7 +293,12 @@ export default function App() {
   }, [isDark]);
 
   const brands = useMemo(() => {
-    const uniqueBrands = new Set(reports.map(r => r.brand).filter(Boolean));
+    const uniqueBrands = new Set(
+      reports
+        .map(r => r.brand)
+        .filter(Boolean)
+        .filter(b => b.toLowerCase() !== 'other')
+    );
     return Array.from(uniqueBrands).sort();
   }, [reports]);
 
@@ -451,10 +461,34 @@ export default function App() {
           >
             <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+
+          <button 
+            onClick={() => setIsInfoOpen(true)}
+            className="p-2 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+          >
+            <Info className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
       <main className="flex-1 relative overflow-hidden">
+        {isInfoOpen && (
+          <div className="absolute inset-0 z-[3000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
+              <button 
+                onClick={() => setIsInfoOpen(false)}
+                className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">About</h2>
+              <p className="text-gray-600 dark:text-slate-300">
+                Made by <a href="https://github.com/aungwinthant" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">AWT</a>
+              </p>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="absolute top-4 left-4 right-4 z-[2000] bg-red-100 dark:bg-red-900/80 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 px-4 py-3 rounded-xl shadow-lg flex items-center justify-between">
             <span className="text-sm font-medium">Error: {error}</span>
