@@ -34,7 +34,7 @@ const UserIcon = L.divIcon({
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap();
   const [hasSetCenter, setHasSetCenter] = useState(false);
-  
+
   useEffect(() => {
     if (!hasSetCenter && center[0] !== 18.7883) {
       map.setView(center, map.getZoom());
@@ -105,7 +105,7 @@ const getStationStatus = (report: Report): 'available' | 'empty' | 'low' | 'unkn
     report.diesel_premium, report.diesel, report.diesel_b10, report.diesel_b20,
     report.benzine, report.g95, report.g91, report.e20, report.e85
   ].filter(f => f !== undefined && f !== null && f !== '');
-  
+
   if (fuels.length === 0) return 'unknown';
 
   const allEmpty = fuels.every(f => f === 'หมด');
@@ -202,9 +202,9 @@ function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
             <div className="p-4 border-b border-gray-50 dark:border-slate-700 flex items-center justify-between bg-gray-50/50 dark:bg-slate-800/50">
               <div className="flex items-center gap-3">
                 {brandLogos[brand.toLowerCase()] && (
-                  <img 
-                    src={brandLogos[brand.toLowerCase()]} 
-                    alt={brand} 
+                  <img
+                    src={brandLogos[brand.toLowerCase()]}
+                    alt={brand}
                     className="w-8 h-8 object-contain bg-white rounded-full border border-gray-100 p-1"
                   />
                 )}
@@ -213,7 +213,7 @@ function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
                 </h3>
               </div>
             </div>
-            
+
             <div className="divide-y divide-gray-50 dark:divide-slate-700">
               {Object.entries(prices).map(([fuelKey, price]) => (
                 <div key={fuelKey} className="flex justify-between items-center p-3 px-4 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
@@ -229,7 +229,7 @@ function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
             </div>
           </div>
         ))}
-        
+
         <div className="text-center text-[10px] text-gray-400 dark:text-slate-500 py-4">
           Data generated at: {priceData.generated}
         </div>
@@ -261,7 +261,7 @@ export default function App() {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           setUserLocation([lat, lng]);
-          
+
           try {
             await supabase.from('user_locations').insert([
               { lat, lng, user_agent: navigator.userAgent }
@@ -344,7 +344,7 @@ export default function App() {
       const reportsResponse = await fetch('https://cm-pump.com/api_report.php?action=list&limit=500');
       if (!reportsResponse.ok) throw new Error('Failed to fetch reports');
       const reportsJson = await reportsResponse.json();
-      
+
       // 2. Fetch Prices (Try Serverless API, fallback to direct crawl)
       let crawledPrices = null;
       try {
@@ -377,7 +377,7 @@ export default function App() {
               crawledPrices = JSON.parse(jsonStr);
             }
           }
-        } catch(fe) {
+        } catch (fe) {
           console.error('Price fallback also failed:', fe);
         }
       }
@@ -386,15 +386,15 @@ export default function App() {
         setReports(reportsJson.reports);
         setPriceData(crawledPrices);
         setLastUpdated(new Date());
-        
+
         try {
-          await supabase.from('api_cache').upsert({ 
-            id: 'fuel_data', 
+          await supabase.from('api_cache').upsert({
+            id: 'fuel_data',
             data: {
               reports: reportsJson.reports,
               priceData: crawledPrices
-            }, 
-            updated_at: new Date().toISOString() 
+            },
+            updated_at: new Date().toISOString()
           }, { onConflict: 'id' });
         } catch (e) {
           console.warn('Supabase write failed:', e);
@@ -416,8 +416,8 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const center: [number, number] = userLocation 
-    ? userLocation 
+  const center: [number, number] = userLocation
+    ? userLocation
     : (reports.length > 0 ? [reports[0].lat, reports[0].lng] : [18.7883, 98.9853]);
 
   return (
@@ -436,7 +436,7 @@ export default function App() {
             )}
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <div className={`w-2 h-2 rounded-full animate-pulse ${isOffline ? 'bg-gray-400' : 'bg-green-500'}`}></div>
@@ -445,14 +445,14 @@ export default function App() {
             </span>
           </div>
 
-          <button 
+          <button
             onClick={() => setIsDark(!isDark)}
             className="p-2 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
-          
-          <button 
+
+          <button
             onClick={() => {
               setLoading(true);
               fetchData(true);
@@ -463,7 +463,7 @@ export default function App() {
             <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
-          <button 
+          <button
             onClick={() => setIsInfoOpen(true)}
             className="p-2 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
           >
@@ -476,7 +476,7 @@ export default function App() {
         {isInfoOpen && (
           <div className="absolute inset-0 z-[3000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
-              <button 
+              <button
                 onClick={() => setIsInfoOpen(false)}
                 className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-colors"
               >
@@ -484,7 +484,7 @@ export default function App() {
               </button>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">About</h2>
               <p className="text-gray-600 dark:text-slate-300">
-                Made by <a href="https://github.com/aungwinthant" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">AWT</a>
+                Myanmar version contributed by <a href="https://github.com/aungwinthant" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">AWT</a>. For original version please visit <a href="https://cm-pump.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">cm-pump.com</a>
               </p>
             </div>
           </div>
@@ -496,7 +496,7 @@ export default function App() {
             <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">&times;</button>
           </div>
         )}
-        
+
         <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'map' ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
           {loading && reports.length === 0 ? (
             <div className="absolute inset-0 z-[1500] bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
@@ -512,11 +512,10 @@ export default function App() {
             <div className="relative">
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-lg border ${
-                  selectedBrand 
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200 dark:shadow-none' 
-                    : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-gray-100 dark:border-slate-700 text-gray-700 dark:text-slate-100'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-lg border ${selectedBrand
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200 dark:shadow-none'
+                  : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-gray-100 dark:border-slate-700 text-gray-700 dark:text-slate-100'
+                  }`}
               >
                 {selectedBrand && brandLogos[selectedBrand.toLowerCase()] && (
                   <img src={brandLogos[selectedBrand.toLowerCase()]} className="w-4 h-4 rounded-full bg-white p-0.5" alt={selectedBrand} />
@@ -527,16 +526,15 @@ export default function App() {
 
               {isFilterOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-[-1]" 
+                  <div
+                    className="fixed inset-0 z-[-1]"
                     onClick={() => setIsFilterOpen(false)}
                   />
                   <div className="absolute top-full left-0 mt-2 w-56 max-h-[60vh] overflow-y-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 py-2 no-scrollbar animate-in fade-in zoom-in duration-200">
                     <button
                       onClick={() => { setSelectedBrand(null); setIsFilterOpen(false); }}
-                      className={`w-full px-4 py-3 text-left text-xs font-bold flex items-center justify-between transition-colors ${
-                        selectedBrand === null ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50'
-                      }`}
+                      className={`w-full px-4 py-3 text-left text-xs font-bold flex items-center justify-between transition-colors ${selectedBrand === null ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50'
+                        }`}
                     >
                       <span>ဆိုင်အားလုံး</span>
                       {selectedBrand === null && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
@@ -545,9 +543,8 @@ export default function App() {
                       <button
                         key={brand}
                         onClick={() => { setSelectedBrand(brand); setIsFilterOpen(false); }}
-                        className={`w-full px-4 py-3 text-left text-xs font-bold flex items-center justify-between transition-colors ${
-                          selectedBrand === brand ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50'
-                        }`}
+                        className={`w-full px-4 py-3 text-left text-xs font-bold flex items-center justify-between transition-colors ${selectedBrand === brand ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50'
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           {brandLogos[brand.toLowerCase()] && (
@@ -564,16 +561,16 @@ export default function App() {
             </div>
           </div>
 
-          <MapContainer 
-            center={center} 
-            zoom={14} 
+          <MapContainer
+            center={center}
+            zoom={14}
             className="h-full w-full"
             zoomControl={false}
           >
             <MapUpdater center={center} />
             <TileLayer
               attribution='&copy; OpenStreetMap'
-              url={isDark 
+              url={isDark
                 ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               }
@@ -589,7 +586,7 @@ export default function App() {
                 </Popup>
               </Marker>
             )}
-            
+
             {filteredReports.map((report) => (
               <Marker key={report.id} position={[report.lat, report.lng]} icon={getBrandIcon(report.brand, getStationStatus(report))}>
                 <Popup className="custom-popup">
@@ -597,7 +594,7 @@ export default function App() {
                     <h3 className="font-bold text-[17px] text-[#2c3e50] dark:text-slate-100 mb-4 tracking-wide leading-tight">
                       {brandNames[report.brand?.toLowerCase()] || report.brand || report.station_name || 'အမည်မသိ ဆိုင်'}
                     </h3>
-                    
+
                     <div className="text-[11px] text-[#94a3b8] font-bold mb-3">
                       ဆီအခြေအနေ
                     </div>
@@ -606,11 +603,11 @@ export default function App() {
                       {Object.entries(fuelTypes).map(([key, label]) => {
                         const statusRaw = report[key as keyof Report] as string | undefined;
                         if (statusRaw === undefined || statusRaw === null || statusRaw === '') return null;
-                        
+
                         let Icon = AlertTriangle;
                         let textClass = "text-[#94a3b8]";
                         let statusText = "မသိရ";
-                        
+
                         if (statusRaw === 'มี') {
                           Icon = Check;
                           textClass = "text-[#10b981]";
@@ -624,7 +621,7 @@ export default function App() {
                           textClass = "text-[#f59e0b]";
                           statusText = "စောင့်ဆိုင်း";
                         }
-                        
+
                         return (
                           <div key={key} className="flex justify-between items-center">
                             <span className="text-[13px] text-black dark:text-gray-100">{label}</span>
@@ -641,7 +638,7 @@ export default function App() {
                       Updated {report.ts_th}
                     </div>
 
-                    <a 
+                    <a
                       href={`https://www.google.com/maps/search/?api=1&query=${report.lat},${report.lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -665,7 +662,7 @@ export default function App() {
 
       <nav className="fixed bottom-0 left-0 right-0 h-[56px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-t border-gray-100 dark:border-slate-700 z-30 pb-safe">
         <div className="flex items-center justify-around h-full max-w-md mx-auto px-6">
-          <button 
+          <button
             onClick={() => setActiveTab('map')}
             className={`flex flex-col items-center justify-center transition-all ${activeTab === 'map' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'}`}
           >
@@ -673,7 +670,7 @@ export default function App() {
             <span className="text-[11px] font-bold">မြေပုံ</span>
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveTab('prices')}
             className={`flex flex-col items-center justify-center transition-all ${activeTab === 'prices' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'}`}
           >
