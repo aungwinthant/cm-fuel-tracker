@@ -328,32 +328,7 @@ export default function FuelMap() {
     try {
       setIsOffline(false);
 
-      // --- PHASE 1: JIT SYNC ---
-      let shouldSync = forceRefresh;
-
-      if (!shouldSync) {
-        const { data: cacheInfo } = await supabase
-          .from('api_cache')
-          .select('updated_at')
-          .eq('id', 'fuel_data')
-          .single();
-
-        if (!cacheInfo) {
-          shouldSync = true;
-        } else {
-          const lastUpdate = new Date(cacheInfo.updated_at).getTime();
-          const now = Date.now();
-          if (now - lastUpdate > 20 * 60 * 1000) {
-            shouldSync = true;
-          }
-        }
-      }
-
-      if (shouldSync) {
-        await fetch('/api/cron');
-      }
-
-      // --- PHASE 2: Fetch from Supabase ---
+      // --- PHASE 1: Fast Fetch from Cache ---
       const [cacheResult, stationsResult] = await Promise.all([
         supabase.from('api_cache').select('data, updated_at').eq('id', 'fuel_data').single(),
         supabase.from('stations').select('*')
@@ -369,6 +344,33 @@ export default function FuelMap() {
 
       if (stationsResult.data) {
         setAllStations(stationsResult.data);
+      }
+
+      // --- PHASE 2: Background JIT Sync ---
+      let shouldSync = forceRefresh;
+
+      if (!shouldSync) {
+        const lastUpdate = cacheResult.data?.updated_at ? new Date(cacheResult.data.updated_at).getTime() : 0;
+        const now = Date.now();
+        // If data is older than 20 mins, trigger sync in background
+        if (now - lastUpdate > 20 * 60 * 1000) {
+          shouldSync = true;
+        }
+      }
+
+      if (shouldSync) {
+        // Fire and forget (don't await)
+        fetch('/api/cron').then(async (res) => {
+          const json = await res.json();
+          // If sync was successful and not skipped, refresh data
+          if (json.success && !json.skipped) {
+            const { data: freshCache } = await supabase.from('api_cache').select('data, updated_at').eq('id', 'fuel_data').single();
+            if (freshCache) {
+              setReports(freshCache.data.reports || []);
+              setLastUpdated(new Date(freshCache.updated_at));
+            }
+          }
+        }).catch(err => console.error('Background sync failed:', err));
       }
 
       const { data: historyData, error: historyError } = await supabase

@@ -33,7 +33,10 @@ export async function GET(request: Request) {
       .eq('id', 'fuel_data')
       .single();
 
-    if (!fetchError && currentCache) {
+    const url = new URL(request.url);
+    const force = url.searchParams.get('force') === 'true';
+
+    if (!fetchError && currentCache && !force) {
       const lastUpdate = new Date(currentCache.updated_at).getTime();
       const now = new Date().getTime();
       const twentyMinutes = 20 * 60 * 1000;
