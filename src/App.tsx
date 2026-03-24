@@ -57,6 +57,7 @@ interface Report {
   diesel_b20?: string;
   benzine?: string;
   g95?: string;
+  g95_premium?: string;
   g91?: string;
   e20?: string;
   e85?: string;
@@ -86,6 +87,7 @@ const fuelTypes: Record<string, string> = {
   'diesel_b20': 'ဒီဇယ် B20',
   'benzine': 'ဓာတ်ဆီ',
   'g95': '95',
+  'g95_premium': 'ပရီမီယံ 95',
   'g91': '91',
   'e20': 'E20',
   'e85': 'E85',
@@ -104,7 +106,7 @@ const brandLogos: Record<string, string> = {
 const getStationStatus = (report: Report): 'available' | 'empty' | 'low' | 'unknown' => {
   const fuels = [
     report.diesel_premium, report.diesel, report.diesel_b10, report.diesel_b20,
-    report.benzine, report.g95, report.g91, report.e20, report.e85
+    report.benzine, report.g95, report.g95_premium, report.g91, report.e20, report.e85
   ].filter(f => f !== undefined && f !== null && f !== '');
 
   if (fuels.length === 0) return 'unknown';
@@ -600,40 +602,43 @@ export default function App() {
                       ဆီအခြေအနေ
                     </div>
 
-                    <div className="space-y-3 mb-5">
-                      {Object.entries(fuelTypes).map(([key, label]) => {
-                        const statusRaw = report[key as keyof Report] as string | undefined;
-                        if (statusRaw === undefined || statusRaw === null || statusRaw === '') return null;
-
-                        let Icon = AlertTriangle;
-                        let textClass = "text-[#94a3b8]";
-                        let statusText = "မသိရ";
-
-                        if (statusRaw === 'มี') {
-                          Icon = Check;
-                          textClass = "text-[#10b981]";
-                          statusText = "ရှိသည်";
-                        } else if (statusRaw === 'หมด') {
-                          Icon = X;
-                          textClass = "text-[#ef4444]";
-                          statusText = "ကုန်ပြီ";
-                        } else if (statusRaw === 'รอส่ง') {
-                          Icon = Clock;
-                          textClass = "text-[#f59e0b]";
-                          statusText = "စောင့်ဆိုင်း";
-                        }
-
+                    {(() => {
+                      const fuelRows = Object.entries(fuelTypes).filter(([key]) => {
+                        const v = report[key as keyof Report] as string | undefined;
+                        return v !== undefined && v !== null && v !== '';
+                      });
+                      if (fuelRows.length === 0) {
                         return (
-                          <div key={key} className="flex justify-between items-center">
-                            <span className="text-[13px] text-black dark:text-gray-100">{label}</span>
-                            <div className={`flex items-center gap-1 font-bold text-[12px] ${textClass}`}>
-                              {Icon !== AlertTriangle ? <Icon className="w-3.5 h-3.5 stroke-[3]" /> : <Icon className="w-3 h-3 fill-current stroke-0" />}
-                              <span>{statusText}</span>
-                            </div>
+                          <div className="flex flex-col items-center gap-2 mb-5 py-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-dashed border-gray-200 dark:border-slate-600">
+                            <AlertTriangle className="w-5 h-5 text-gray-300 dark:text-slate-500" />
+                            <span className="text-[12px] font-bold text-gray-400 dark:text-slate-500">ဒေတာမရှိပါ</span>
+                            <span className="text-[10px] text-gray-300 dark:text-slate-600">No data reported yet</span>
                           </div>
                         );
-                      })}
-                    </div>
+                      }
+                      return (
+                        <div className="space-y-3 mb-5">
+                          {fuelRows.map(([key, label]) => {
+                            const statusRaw = report[key as keyof Report] as string;
+                            let Icon = AlertTriangle;
+                            let textClass = "text-[#94a3b8]";
+                            let statusText = "မသိရ";
+                            if (statusRaw === 'มี') { Icon = Check; textClass = "text-[#10b981]"; statusText = "ရှိသည်"; }
+                            else if (statusRaw === 'หมด') { Icon = X; textClass = "text-[#ef4444]"; statusText = "ကုန်ပြီ"; }
+                            else if (statusRaw === 'รอส่ง') { Icon = Clock; textClass = "text-[#f59e0b]"; statusText = "စောင့်ဆိုင်း"; }
+                            return (
+                              <div key={key} className="flex justify-between items-center">
+                                <span className="text-[13px] text-black dark:text-gray-100">{label}</span>
+                                <div className={`flex items-center gap-1 font-bold text-[12px] ${textClass}`}>
+                                  {Icon !== AlertTriangle ? <Icon className="w-3.5 h-3.5 stroke-[3]" /> : <Icon className="w-3 h-3 fill-current stroke-0" />}
+                                  <span>{statusText}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
 
                     {report.queue && report.queue !== '' && (
                       <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40">
