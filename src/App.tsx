@@ -314,17 +314,37 @@ export default function App() {
     try {
       setIsOffline(false);
 
-      // 1. Fetch from Supabase Cache (Reports)
-      // If not forceRefresh, check local 'lastUpdated' to avoid unnecessary Supabase calls
-      if (!forceRefresh && lastUpdated) {
-        const now = new Date().getTime();
-        const fiveMinutes = 5 * 60 * 1000;
-        if (now - lastUpdated.getTime() < fiveMinutes) {
-          setLoading(false);
-          return;
+      // --- PHASE 1: JIT SYNC ---
+      // We check if we need to trigger the backend scraper
+      // This happens if forceRefresh is true OR if the data is older than 20 minutes
+      let shouldSync = forceRefresh;
+      
+      if (!shouldSync) {
+        const { data: cacheInfo } = await supabase
+          .from('api_cache')
+          .select('updated_at')
+          .eq('id', 'fuel_data')
+          .single();
+        
+        if (!cacheInfo) {
+          shouldSync = true;
+        } else {
+          const lastUpdate = new Date(cacheInfo.updated_at).getTime();
+          const now = new Date().getTime();
+          const twentyMinutes = 20 * 60 * 1000;
+          if (now - lastUpdate > twentyMinutes) {
+            shouldSync = true;
+          }
         }
       }
 
+      if (shouldSync) {
+        // Trigger the backend sync API
+        // This will update Supabase if the data is truly stale
+        await fetch('/api/cron'); 
+      }
+
+      // --- PHASE 2: Fetch from Supabase ---
       const { data: cache, error: cacheError } = await supabase
         .from('api_cache')
         .select('data, updated_at')

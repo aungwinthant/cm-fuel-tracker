@@ -6,14 +6,32 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SU
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET(request: Request) {
-  // Check cron secret for security (optional but recommended for Vercel Cron)
-  // const authHeader = request.headers.get('authorization');
-  // if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-  //   return new Response('Unauthorized', { status: 401 });
-  // }
-
   try {
-    // Fetch from the direct php script that generates the price table
+    // --- PHASE 0: Freshness Check (20-minute threshold) ---
+    const { data: currentCache, error: fetchError } = await supabase
+      .from('api_cache')
+      .select('updated_at')
+      .eq('id', 'fuel_data')
+      .single();
+
+    if (!fetchError && currentCache) {
+      const lastUpdate = new Date(currentCache.updated_at).getTime();
+      const now = new Date().getTime();
+      const twentyMinutes = 20 * 60 * 1000;
+
+      if (now - lastUpdate < twentyMinutes) {
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Data is still fresh (within 20 mins)', 
+          skipped: true 
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // --- PHASE 1: Fetch Fuel Prices from EPPO ---
     const response = await fetch('https://www.eppo.go.th/epposite/templates/eppo_v15_mixed/eppo_oil/eppo_oil_gen_new.php', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
