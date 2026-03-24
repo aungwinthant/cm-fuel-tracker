@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -175,9 +176,7 @@ export async function GET(request: Request) {
     await supabase.from('sync_logs').insert({
       status: syncStatus,
       updated_stations: reportsJson?.reports?.length || 0,
-      discovery_status: discoveryStatus,
-      discovered_url: reportsUrl !== configData?.value ? reportsUrl : null,
-      error_message: !reportsJson ? 'Failed to fetch or parse reports' : null
+      error_message: !reportsJson ? 'Failed to fetch or parse reports' : (discoveryStatus === 'success' ? `API URL Updated: ${reportsUrl}` : null)
     });
 
     return new Response(JSON.stringify({ 
@@ -196,7 +195,6 @@ export async function GET(request: Request) {
     await supabase.from('sync_logs').insert({
       status: 'error',
       updated_stations: 0,
-      discovery_status: 'failed',
       error_message: error.message
     });
 
@@ -205,4 +203,53 @@ export async function GET(request: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+}
+
+function toWebRequest(req: VercelRequest): Request {
+  const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
+  const host =
+    (req.headers['x-forwarded-host'] as string) ||
+    (req.headers['host'] as string) ||
+    'localhost';
+  const url = req.url ? `${proto}://${host}${req.url}` : `${proto}://${host}/api/cron`;
+
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (typeof value === 'undefined') continue;
+    if (Array.isArray(value)) {
+      headers.set(key, value.join(','));
+    } else {
+      headers.set(key, value);
+    }
+  }
+
+  const method = req.method || 'GET';
+  const body =
+    method === 'GET' || method === 'HEAD'
+      ? undefined
+      : typeof req.body === 'string'
+        ? req.body
+        : req.body
+          ? JSON.stringify(req.body)
+          : undefined;
+
+  return new Request(url, { method, headers, body });
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
+  }
+
+  const webReq = toWebRequest(req);
+  const webRes = await GET(webReq);
+
+  webRes.headers.forEach((value, key) => {
+    res.setHeader(key, value);
+  });
+
+  res.status(webRes.status);
+  const body = await webRes.text();
+  res.send(body);
 }

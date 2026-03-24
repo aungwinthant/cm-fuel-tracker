@@ -172,7 +172,7 @@ export default function OpsDashboard() {
                     <Clock className="w-5 h-5 text-slate-300" />
                   )}
                   <span className={`text-xl font-black ${latest.discovery_status === 'success' ? 'text-emerald-600' : latest.discovery_status === 'failed' ? 'text-rose-600' : 'text-slate-400'}`}>
-                    {latest.discovery_status.toUpperCase()}
+                    {(latest.discovery_status || 'skipped').toUpperCase()}
                   </span>
                 </div>
                 <div className="mt-3 truncate">

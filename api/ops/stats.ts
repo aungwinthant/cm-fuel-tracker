@@ -64,7 +64,11 @@ export async function GET(request: Request) {
 
     return new Response(JSON.stringify({
       success: true,
-      latestSync: syncLogs?.[0] || null,
+      latestSync: syncLogs?.[0] ? {
+        ...syncLogs[0],
+        discovery_status: syncLogs[0].discovery_status || 'skipped',
+        discovered_url: syncLogs[0].discovered_url || null
+      } : null,
       userLocations: normalizedUserLocs,
       latestStations: latestStations || []
     }), {
