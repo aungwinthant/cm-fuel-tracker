@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Fuel, MapPin, Clock, Moon, Sun, Map as MapIcon, List as ListIcon, RefreshCcw, ChevronDown, Check, X, AlertTriangle, Info } from 'lucide-react';
+import { Fuel, MapPin, Clock, Moon, Sun, Map as MapIcon, List as ListIcon, RefreshCcw, ChevronDown, Check, X, AlertTriangle, Info, Users } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -60,6 +60,7 @@ interface Report {
   g91?: string;
   e20?: string;
   e85?: string;
+  queue?: string;
   ts_unix: number;
   ts_th: string;
 }
@@ -633,6 +634,14 @@ export default function App() {
                         );
                       })}
                     </div>
+
+                    {report.queue && report.queue !== '' && (
+                      <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40">
+                        <Users className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                        <span className="text-[12px] font-bold text-amber-700 dark:text-amber-400">တန်းစီ</span>
+                        <span className="ml-auto text-[13px] font-extrabold text-amber-700 dark:text-amber-300">{report.queue} ယာဉ်</span>
+                      </div>
+                    )}
 
                     <div className="text-[10px] text-[#94a3b8] mb-3">
                       Updated {report.ts_th}
