@@ -102,13 +102,83 @@ export async function GET(request: Request) {
       throw error;
     }
 
-    return new Response(JSON.stringify({ success: true, date: today, data }), {
+    // --- PHASE 2: Fetch Reports URL from Config & Fetch Data ---
+    const { data: configData, error: configError } = await supabase
+      .from('config')
+      .select('value')
+      .eq('id', 'reports_url')
+      .single();
+
+    if (configError) {
+      throw new Error(`Failed to fetch reports_url from config: ${configError.message}`);
+    }
+
+    const reportsUrl = configData.value;
+
+    const reportsResponse = await fetch(reportsUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://cm-pump.com/',
+      }
+    });
+
+    if (!reportsResponse.ok) {
+      throw new Error(`Failed to fetch reports from ${reportsUrl}: ${reportsResponse.status}`);
+    }
+
+    const reportsJson = await reportsResponse.json();
+
+    if (reportsJson.ok && reportsJson.reports) {
+      // 1. Sync station metadata to permanent 'stations' table
+      const stationsToSync = reportsJson.reports.map((r: any) => ({
+        osm_id: r.osm_id,
+        station_name: r.station_name,
+        brand: r.brand,
+        lat: parseFloat(r.lat),
+        lng: parseFloat(r.lng),
+        updated_at: new Date().toISOString()
+      })).filter((s: any) => s.osm_id && !isNaN(s.lat) && !isNaN(s.lng));
+
+      if (stationsToSync.length > 0) {
+        const { error: syncError } = await supabase
+          .from('stations')
+          .upsert(stationsToSync, { onConflict: 'osm_id' });
+        
+        if (syncError) {
+          console.error('Error syncing stations:', syncError.message);
+        }
+      }
+
+      // 2. Upsert the full reports into api_cache for the frontend
+      const { error: cacheError } = await supabase
+        .from('api_cache')
+        .upsert({
+          id: 'fuel_data',
+          data: { 
+            reports: reportsJson.reports,
+          },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+      if (cacheError) {
+        throw cacheError;
+      }
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      date: today, 
+      history_updated: true,
+      reports_updated: !!reportsJson.ok,
+      stations_synced: reportsJson.reports?.length || 0
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
     
   } catch (error: any) {
-    console.error('Error executing EPPO cron:', error.message);
+    console.error('Error executing cron:', error.message);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

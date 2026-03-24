@@ -313,77 +313,44 @@ export default function App() {
   const fetchData = async (forceRefresh = false) => {
     try {
       setIsOffline(false);
-      let cachedReports = null;
-      let cachedPrices = null;
 
-      if (!forceRefresh) {
-        try {
-          const { data: cache, error: supabaseError } = await supabase
-            .from('api_cache')
-            .select('data, updated_at')
-            .eq('id', 'fuel_data')
-            .single();
-
-          if (cache && !supabaseError) {
-            const updatedAt = new Date(cache.updated_at).getTime();
-            const now = new Date().getTime();
-            const fifteenMinutes = 15 * 60 * 1000;
-
-            if (now - updatedAt < fifteenMinutes && cache.data) {
-              setReports(cache.data.reports || []);
-              if (cache.data.fuelHistory) setFuelHistory(cache.data.fuelHistory);
-              setLastUpdated(new Date(cache.updated_at));
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (e) {
-          console.warn('Supabase read failed, bypassing cache...', e);
+      // 1. Fetch from Supabase Cache (Reports)
+      // If not forceRefresh, check local 'lastUpdated' to avoid unnecessary Supabase calls
+      if (!forceRefresh && lastUpdated) {
+        const now = new Date().getTime();
+        const fiveMinutes = 5 * 60 * 1000;
+        if (now - lastUpdated.getTime() < fiveMinutes) {
+          setLoading(false);
+          return;
         }
       }
 
-      // 1. Fetch Reports
-      const reportsResponse = await fetch('https://cm-pump.com/api_report.php?action=list&limit=500');
-      if (!reportsResponse.ok) throw new Error('Failed to fetch reports');
-      const reportsJson = await reportsResponse.json();
+      const { data: cache, error: cacheError } = await supabase
+        .from('api_cache')
+        .select('data, updated_at')
+        .eq('id', 'fuel_data')
+        .single();
 
-      // 2. Fetch History from Supabase
-      let fetchedHistory: PriceHistoryRow[] = [];
-      try {
-        const { data: historyData, error: historyError } = await supabase
-          .from('fuel_prices_history')
-          .select('date, prices')
-          .order('date', { ascending: false })
-          .limit(2);
-          
-        if (!historyError && historyData) {
-          fetchedHistory = historyData;
-        }
-      } catch (e) {
-        console.warn('Failed to fetch history:', e);
+      if (cacheError) throw cacheError;
+
+      if (cache && cache.data) {
+        setReports(cache.data.reports || []);
+        setLastUpdated(new Date(cache.updated_at));
       }
 
-      if (reportsJson.ok && reportsJson.reports) {
-        setReports(reportsJson.reports);
-        setFuelHistory(fetchedHistory);
-        setLastUpdated(new Date());
-
-        try {
-          await supabase.from('api_cache').upsert({
-            id: 'fuel_data',
-            data: { 
-              reports: reportsJson.reports,
-              fuelHistory: fetchedHistory 
-            },
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'id' });
-        } catch (e) {
-          console.warn('Supabase write failed:', e);
-        }
-      } else {
-        throw new Error('Invalid format from API');
+      // 2. Fetch History from Supabase (Prices)
+      const { data: historyData, error: historyError } = await supabase
+        .from('fuel_prices_history')
+        .select('date, prices')
+        .order('date', { ascending: false })
+        .limit(2);
+        
+      if (!historyError && historyData) {
+        setFuelHistory(historyData);
       }
+
     } catch (err) {
+      console.error('Data fetch error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       setIsOffline(true);
     } finally {
