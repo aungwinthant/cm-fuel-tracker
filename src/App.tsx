@@ -147,27 +147,6 @@ const getBrandIcon = (brand: string, status: 'available' | 'empty' | 'low' | 'un
   });
 };
 
-interface PriceData {
-  prices: Record<string, Record<string, number>>;
-  effective_date: string;
-  source: string;
-  date_short: string;
-  generated: string;
-}
-
-const priceLabels: Record<string, string> = {
-  diesel_premium: 'Premium Diesel',
-  diesel: 'Diesel',
-  diesel_b10: 'Diesel B10',
-  diesel_b20: 'Diesel B20',
-  benzine: 'Benzine',
-  g95: '95',
-  g95_premium: 'Premium 95',
-  g91: '91',
-  e20: 'E20',
-  e85: 'E85',
-};
-
 const brandNames: Record<string, string> = {
   ptt: 'PTT OR',
   bangchak: 'Bangchak',
@@ -177,30 +156,38 @@ const brandNames: Record<string, string> = {
   cosmo: 'Cosmo',
 };
 
-function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
-  if (!priceData) {
+interface PriceHistoryRow {
+  date: string;
+  prices: Record<string, Record<string, number | null>>;
+}
+
+function FuelPricesView({ history }: { history: PriceHistoryRow[] }) {
+  if (!history || history.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-slate-400 p-8 text-center">
+      <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-slate-400 p-8 text-center bg-gray-50 dark:bg-slate-900">
         <Clock className="w-12 h-12 mb-4 opacity-20" />
         <p>စျေးနှုန်းဒေတာ မရရှိနိုင်သေးပါ</p>
       </div>
     );
   }
 
+  const latest = history[0];
+  const previous = history.length > 1 ? history[1] : null;
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-slate-900">
       <div className="p-4 overflow-y-auto space-y-4 pb-24">
         <div className="bg-blue-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-200 dark:shadow-none mb-2">
-          <div className="text-xs opacity-80 uppercase tracking-widest font-bold mb-1">နောက်ဆုံးအပ်ဒိတ်</div>
+          <div className="text-xs opacity-80 uppercase tracking-widest font-bold mb-1">Official Reference Prices</div>
           <div className="text-xl font-bold">
-            {new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}
+            {new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(latest.date))}
           </div>
           <div className="text-[10px] opacity-60 mt-2 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Source: {priceData.source}
+            <Clock className="w-3 h-3" /> Data provided by EPPO Thailand
           </div>
         </div>
 
-        {Object.entries(priceData.prices).map(([brand, prices]) => (
+        {Object.entries(latest.prices).map(([brand, prices]) => (
           <div key={brand} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
             <div className="p-4 border-b border-gray-50 dark:border-slate-700 flex items-center justify-between bg-gray-50/50 dark:bg-slate-800/50">
               <div className="flex items-center gap-3">
@@ -218,24 +205,36 @@ function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
             </div>
 
             <div className="divide-y divide-gray-50 dark:divide-slate-700">
-              {Object.entries(prices).map(([fuelKey, price]) => (
-                <div key={fuelKey} className="flex justify-between items-center p-3 px-4 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                  <span className="text-sm font-medium text-gray-600 dark:text-slate-300">
-                    {priceLabels[fuelKey] || fuelKey}
-                  </span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-bold text-gray-900 dark:text-slate-100">{price.toFixed(2)}</span>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase">THB</span>
+              {Object.entries(prices).map(([fuelKey, price]) => {
+                if (price === null) return null;
+                
+                let diff = 0;
+                if (previous && previous.prices[brand] && previous.prices[brand][fuelKey] !== null) {
+                  diff = price - (previous.prices[brand][fuelKey] as number);
+                }
+
+                return (
+                  <div key={fuelKey} className="flex justify-between items-center p-3 px-4 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                    <span className="text-sm font-medium text-gray-600 dark:text-slate-300">
+                      {fuelTypes[fuelKey] || fuelKey}
+                    </span>
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-lg font-bold text-gray-900 dark:text-slate-100">{price.toFixed(2)}</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase">THB</span>
+                      </div>
+                      {diff !== 0 && (
+                        <div className={`text-[10px] font-bold flex items-center gap-0.5 ${diff > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                          {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
-
-        <div className="text-center text-[10px] text-gray-400 dark:text-slate-500 py-4">
-          Data generated at: {priceData.generated}
-        </div>
       </div>
     </div>
   );
@@ -243,7 +242,7 @@ function FuelPricesView({ priceData }: { priceData: PriceData | null }) {
 
 export default function App() {
   const [reports, setReports] = useState<Report[]>([]);
-  const [priceData, setPriceData] = useState<PriceData | null>(null);
+  const [fuelHistory, setFuelHistory] = useState<PriceHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
@@ -332,7 +331,7 @@ export default function App() {
 
             if (now - updatedAt < fifteenMinutes && cache.data) {
               setReports(cache.data.reports || []);
-              setPriceData(cache.data.priceData || null);
+              if (cache.data.fuelHistory) setFuelHistory(cache.data.fuelHistory);
               setLastUpdated(new Date(cache.updated_at));
               setLoading(false);
               return;
@@ -348,54 +347,33 @@ export default function App() {
       if (!reportsResponse.ok) throw new Error('Failed to fetch reports');
       const reportsJson = await reportsResponse.json();
 
-      // 2. Fetch Prices (Try Serverless API, fallback to direct crawl)
-      let crawledPrices = null;
+      // 2. Fetch History from Supabase
+      let fetchedHistory: PriceHistoryRow[] = [];
       try {
-        const pricesResponse = await fetch('/api/prices');
-        if (pricesResponse.ok) {
-          crawledPrices = await pricesResponse.json();
-        } else {
-          // Fallback to direct crawl if API is missing
-          const mainPageResponse = await fetch('https://cm-pump.com/');
-          if (mainPageResponse.ok) {
-            const html = await mainPageResponse.text();
-            const priceDataMatch = html.match(/const\s+PRICE_DATA\s*=\s*(\{[\s\S]*?\});/);
-            if (priceDataMatch && priceDataMatch[1]) {
-              let jsonStr = priceDataMatch[1].trim();
-              jsonStr = jsonStr.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-              crawledPrices = JSON.parse(jsonStr);
-            }
-          }
+        const { data: historyData, error: historyError } = await supabase
+          .from('fuel_prices_history')
+          .select('date, prices')
+          .order('date', { ascending: false })
+          .limit(2);
+          
+        if (!historyError && historyData) {
+          fetchedHistory = historyData;
         }
       } catch (e) {
-        console.warn('Price fetch failed, attempting fallback...', e);
-        try {
-          const mainPageResponse = await fetch('https://cm-pump.com/');
-          if (mainPageResponse.ok) {
-            const html = await mainPageResponse.text();
-            const priceDataMatch = html.match(/const\s+PRICE_DATA\s*=\s*(\{[\s\S]*?\});/);
-            if (priceDataMatch && priceDataMatch[1]) {
-              let jsonStr = priceDataMatch[1].trim();
-              jsonStr = jsonStr.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-              crawledPrices = JSON.parse(jsonStr);
-            }
-          }
-        } catch (fe) {
-          console.error('Price fallback also failed:', fe);
-        }
+        console.warn('Failed to fetch history:', e);
       }
 
       if (reportsJson.ok && reportsJson.reports) {
         setReports(reportsJson.reports);
-        setPriceData(crawledPrices);
+        setFuelHistory(fetchedHistory);
         setLastUpdated(new Date());
 
         try {
           await supabase.from('api_cache').upsert({
             id: 'fuel_data',
-            data: {
+            data: { 
               reports: reportsJson.reports,
-              priceData: crawledPrices
+              fuelHistory: fetchedHistory 
             },
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' });
@@ -500,7 +478,7 @@ export default function App() {
           </div>
         )}
 
-        <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'map' ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
+        <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'map' ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'}`}>
           {loading && reports.length === 0 ? (
             <div className="absolute inset-0 z-[1500] bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
@@ -669,8 +647,8 @@ export default function App() {
           </MapContainer>
         </div>
 
-        <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'prices' ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-          <FuelPricesView priceData={priceData} />
+        <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'prices' ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'}`}>
+          <FuelPricesView history={fuelHistory} />
         </div>
       </main>
 
@@ -693,6 +671,7 @@ export default function App() {
           </button>
         </div>
       </nav>
+      
       <Analytics />
     </div>
   );
