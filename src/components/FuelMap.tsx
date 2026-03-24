@@ -111,6 +111,7 @@ const brandNames: Record<string, string> = {
   'pt': 'PT Station',
   'pure': 'Pure',
   'cosmo': 'Cosmo Pump',
+  'rotary': 'Rotary Station',
 };
 
 const brandLogos: Record<string, string> = {
@@ -146,12 +147,11 @@ const getStationStatus = (report?: Report): 'available' | 'empty' | 'low' | 'unk
 
 const getBrandIcon = (brand: string, status: 'available' | 'empty' | 'low' | 'unknown' | 'no_data') => {
   const logoUrl = brandLogos[brand?.toLowerCase()];
-  if (!logoUrl) return DefaultIcon;
-
+  
   let indicatorColor = 'bg-gray-400';
   let opacity = 'opacity-100';
   let grayscale = '';
-
+  
   if (status === 'available') indicatorColor = 'bg-green-500';
   else if (status === 'empty') indicatorColor = 'bg-red-500';
   else if (status === 'low') indicatorColor = 'bg-yellow-500';
@@ -161,10 +161,14 @@ const getBrandIcon = (brand: string, status: 'available' | 'empty' | 'low' | 'un
     grayscale = 'grayscale';
   }
 
+  const innerContent = logoUrl 
+    ? `<img src="${logoUrl}" alt="${brand}" class="w-full h-full object-contain p-1" />`
+    : `<div class="w-full h-full flex items-center justify-center bg-slate-50 text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22L15 22"/><path d="M4 9L14 9"/><path d="M14 22L14 11"/><path d="M15 6C15 6 17 6 18 5C19 4 21 4 21 4"/><path d="M18 11V22"/><path d="M15 15L18 12"/><path d="M4 18V5C4 3.9 4.9 3 6 3H12C13.1 3 14 3.9 14 5V18"/><circle cx="9" cy="13" r="2"/></svg></div>`;
+
   const html = `
     <div class="relative w-8 h-8 ${opacity} ${grayscale} transition-all duration-300">
       <div class="w-full h-full bg-white rounded-full shadow-md border-2 border-white flex items-center justify-center overflow-hidden">
-        <img src="${logoUrl}" alt="${brand}" class="w-full h-full object-contain p-1" />
+        ${innerContent}
       </div>
       <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${indicatorColor} shadow-sm"></div>
     </div>
@@ -453,14 +457,20 @@ export default function FuelMap() {
         )}
 
         <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'map' ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-          <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+          <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
             <div className="relative">
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className="flex items-center gap-2 px-3 py-2.5 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-95 no-scrollbar"
               >
-                {selectedBrand && brandLogos[selectedBrand.toLowerCase()] && (
-                  <img src={brandLogos[selectedBrand.toLowerCase()]} className="w-4 h-4 rounded-full bg-white p-0.5" alt={selectedBrand} />
+                {selectedBrand && (
+                  brandLogos[selectedBrand.toLowerCase()] ? (
+                    <img src={brandLogos[selectedBrand.toLowerCase()]} className="w-4 h-4 rounded-full bg-white p-0.5" alt={selectedBrand} />
+                  ) : (
+                    <div className="w-4 h-4 rounded-full bg-blue-50 flex items-center justify-center p-0.5 border border-blue-100">
+                      <Fuel className="w-3 h-3 text-blue-600" />
+                    </div>
+                  )
                 )}
                 <span>{selectedBrand ? (brandNames[selectedBrand.toLowerCase()] || selectedBrand) : 'ဆိုင်အားလုံး'}</span>
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
@@ -489,8 +499,12 @@ export default function FuelMap() {
                           }`}
                       >
                         <div className="flex items-center gap-3">
-                          {brandLogos[brand.toLowerCase()] && (
+                          {brandLogos[brand.toLowerCase()] ? (
                             <img src={brandLogos[brand.toLowerCase()]} className="w-5 h-5 rounded-full bg-white p-0.5 border border-gray-100" alt={brand} />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center p-1 border border-slate-100">
+                              <Fuel className="w-3 h-3 text-slate-400" />
+                            </div>
                           )}
                           <span className="uppercase tracking-tight">{brandNames[brand.toLowerCase()] || brand}</span>
                         </div>
