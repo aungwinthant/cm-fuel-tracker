@@ -249,6 +249,9 @@ export default function FuelMap() {
   const [fuelHistory, setFuelHistory] = useState<PriceHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [maintenanceTitle, setMaintenanceTitle] = useState('Maintenance');
+  const [maintenanceDescription, setMaintenanceDescription] = useState('We are performing maintenance. Please check back soon.');
   const [isDark, setIsDark] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'prices'>('map');
   const [isOffline, setIsOffline] = useState(false);
@@ -281,11 +284,55 @@ export default function FuelMap() {
     }
   }, []);
 
+  const parseMaintenanceFlag = (value: unknown) => {
+    if (typeof value === 'boolean') return value;
+    if (value === null || value === undefined) return false;
+    const normalized = String(value).trim().toLowerCase();
+    return ['true', '1', 'yes', 'y', 'on', 'enabled'].includes(normalized);
+  };
+
+  const fetchMaintenance = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('config')
+        .select('id, value')
+        .in('id', ['maintenance_mode', 'maintenance_title', 'maintenance_description']);
+
+      if (error) throw error;
+
+      const getValue = (id: string) => data?.find((row) => row.id === id)?.value;
+      const enabled = parseMaintenanceFlag(getValue('maintenance_mode'));
+      const title = String(getValue('maintenance_title') ?? '').trim() || 'Maintenance';
+      const description =
+        String(getValue('maintenance_description') ?? '').trim() ||
+        'We are performing maintenance. Please check back soon.';
+
+      setMaintenanceEnabled(enabled);
+      setMaintenanceTitle(title);
+      setMaintenanceDescription(description);
+    } catch (err) {
+      console.error('Maintenance config fetch error:', err);
+    }
+  };
+
   useEffect(() => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setIsDark(true);
     }
   }, []);
+
+  useEffect(() => {
+    fetchMaintenance();
+    const interval = setInterval(fetchMaintenance, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = maintenanceEnabled ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [maintenanceEnabled]);
 
   useEffect(() => {
     if (isDark) {
@@ -413,6 +460,24 @@ export default function FuelMap() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+      {maintenanceEnabled && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-[90%] max-w-md rounded-3xl border border-slate-200/30 bg-white/95 p-6 text-center shadow-2xl dark:border-slate-700/60 dark:bg-slate-900/95"
+          >
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{maintenanceTitle}</h2>
+            <p className="mt-2 text-sm font-medium text-slate-600 dark:text-slate-300">{maintenanceDescription}</p>
+            <div className="mt-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">
+              Maintenance Mode
+            </div>
+          </div>
+        </div>
+      )}
       <header className="bg-white dark:bg-slate-800 shadow-sm z-20 p-4 flex items-center justify-between border-b border-gray-100 dark:border-slate-700">
         <div className="flex items-center gap-2">
           <div className="bg-blue-600 p-1.5 rounded-lg shadow-blue-200 shadow-lg">
