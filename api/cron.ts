@@ -112,11 +112,27 @@ export async function GET(request: Request) {
 
     const fetchWithFallback = async (url: string) => {
         try {
+            const target = new URL(url);
+            const base = `${target.origin}${target.pathname}`;
+            const tokenUrl = new URL(base);
+            tokenUrl.searchParams.set('action', 'token');
+
+            const commonHeaders = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Referer': 'https://cm-pump.com/',
+            } as const;
+
+            const tokenRes = await fetch(tokenUrl.toString(), { headers: commonHeaders });
+            if (!tokenRes.ok) return null;
+            const tokenJson = await tokenRes.json();
+            const token = tokenJson?.token;
+            if (!token) return null;
+
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json, text/plain, */*',
-                    'Referer': 'https://cm-pump.com/',
+                    ...commonHeaders,
+                    'X-API-Token': token,
                 }
             });
             if (!response.ok) return null;
