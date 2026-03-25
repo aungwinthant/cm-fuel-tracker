@@ -78,6 +78,7 @@ const statusTranslations: Record<string, string> = {
   'มี': 'ရှိသည်',
   'หมด': 'ကုန်ပြီ',
   'รอส่ง': 'စောင့်ဆိုင်း',
+  'จองคิว': 'ကြိုတင်တန်းစီ',
   '': 'မသိရ',
 };
 
@@ -85,6 +86,7 @@ const statusColors: Record<string, string> = {
   'มี': 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50',
   'หมด': 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50',
   'รอส่ง': 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50',
+  'จองคิว': 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50',
   '': 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-800/30 dark:text-slate-500 dark:border-slate-700/50',
 };
 
@@ -399,8 +401,8 @@ export default function FuelMap() {
       if (!shouldSync) {
         const lastUpdate = cacheResult.data?.updated_at ? new Date(cacheResult.data.updated_at).getTime() : 0;
         const now = Date.now();
-        // If data is older than 20 mins, trigger sync in background
-        if (now - lastUpdate > 20 * 60 * 1000) {
+        // If data is older than 10 mins, trigger sync in background
+        if (now - lastUpdate > 10 * 60 * 1000) {
           shouldSync = true;
         }
       }
@@ -659,6 +661,7 @@ export default function FuelMap() {
                               if (statusRaw === 'มี') { Icon = Check; textClass = "text-[#10b981]"; }
                               else if (statusRaw === 'หมด') { Icon = X; textClass = "text-[#ef4444]"; }
                               else if (statusRaw === 'รอส่ง') { Icon = Clock; textClass = "text-[#f59e0b]"; }
+                              else if (statusRaw === 'จองคิว') { Icon = Clock; textClass = "text-[#f59e0b]"; }
 
                               return (
                                 <div key={key} className="flex justify-between items-center px-1">
