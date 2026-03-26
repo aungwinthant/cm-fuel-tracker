@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Activity, MapPin, RefreshCcw, LogOut, CheckCircle2, XCircle, Globe, ShieldAlert, Clock, Smartphone, Database, ExternalLink } from 'lucide-react';
@@ -23,6 +23,25 @@ const UserLocIcon = L.divIcon({
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });
+
+const SelectedUserLocIcon = L.divIcon({
+  className: 'custom-ops-selected-icon',
+  html: `<div class="w-5 h-5 bg-blue-600 border-2 border-white rounded-full shadow-xl ring-4 ring-blue-500/30"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+function MapFocus({ center }: { center: [number, number] | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!center) return;
+    const nextZoom = Math.max(map.getZoom(), 14);
+    map.setView(center, nextZoom, { animate: true });
+  }, [center, map]);
+
+  return null;
+}
 
 interface SyncLog {
   id: string;
@@ -53,6 +72,7 @@ export default function OpsDashboard() {
   const [data, setData] = useState<{ latestSync: SyncLog | null, userLocations: UserLocation[], latestStations: Station[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<UserLocation | null>(null);
   const navigate = useNavigate();
 
   const fetchData = async () => {
@@ -102,6 +122,14 @@ export default function OpsDashboard() {
   }
 
   const latest = data?.latestSync;
+  const selectedCenter = selectedLocation ? [selectedLocation.lat, selectedLocation.lng] as [number, number] : null;
+
+  const isSelected = (loc: UserLocation) => (
+    selectedLocation &&
+    loc.lat === selectedLocation.lat &&
+    loc.lng === selectedLocation.lng &&
+    loc.timestamp === selectedLocation.timestamp
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -222,6 +250,7 @@ export default function OpsDashboard() {
                   zoomControl={false}
                 >
                   <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                  <MapFocus center={selectedCenter} />
                   {data?.userLocations
                     .filter(loc => typeof loc.lat === 'number' && typeof loc.lng === 'number' && !isNaN(loc.lat) && !isNaN(loc.lng))
                     .map((loc, idx) => (
@@ -238,6 +267,20 @@ export default function OpsDashboard() {
                         </Popup>
                       </Marker>
                   ))}
+                  {selectedLocation && (
+                    <Marker position={[selectedLocation.lat, selectedLocation.lng]} icon={SelectedUserLocIcon}>
+                      <Popup className="custom-popup">
+                        <div className="p-2 min-w-[140px]">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Selected Visit</p>
+                          <p className="text-xs text-slate-700 font-medium mb-1">Time: {new Date(selectedLocation.timestamp).toLocaleTimeString()}</p>
+                          {selectedLocation.ip_address && (
+                            <p className="text-[10px] text-slate-500 font-mono mb-1">IP: {selectedLocation.ip_address}</p>
+                          )}
+                          <p className="text-[10px] text-slate-500 italic break-all leading-tight">{selectedLocation.user_agent}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
                </MapContainer>
              </div>
           </div>
@@ -253,12 +296,19 @@ export default function OpsDashboard() {
               {data?.userLocations.length === 0 && (
                 <div className="p-12 text-center text-slate-300 italic text-sm">No recent activity</div>
               )}
-              {data?.userLocations.map((loc, idx) => (
-                <div key={idx} className="p-5 hover:bg-slate-50/50 transition-colors flex gap-4">
-                   <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100">
-                      <MapPin className="w-5 h-5 text-slate-400" />
-                   </div>
-                   <div className="flex-1 min-w-0">
+              {data?.userLocations.map((loc, idx) => {
+                const active = isSelected(loc);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedLocation(loc)}
+                    className={`w-full text-left p-5 transition-colors flex gap-4 ${active ? 'bg-blue-50/60' : 'hover:bg-slate-50/50'}`}
+                  >
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${active ? 'bg-blue-100 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
+                      <MapPin className={`w-5 h-5 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[11px] font-black text-slate-800">{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</span>
                         <span className="text-[10px] text-slate-400 font-bold">{new Date(loc.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
@@ -267,9 +317,10 @@ export default function OpsDashboard() {
                         <p className="text-[10px] text-slate-500 font-mono truncate">IP: {loc.ip_address}</p>
                       )}
                       <p className="text-[11px] text-slate-400 font-medium truncate">{loc.user_agent}</p>
-                   </div>
-                </div>
-              ))}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
             <div className="p-4 bg-slate-50 text-center">
                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Viewing last 10 visits</p>
