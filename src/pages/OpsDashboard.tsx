@@ -58,7 +58,7 @@ interface UserLocation {
   lng: number;
   user_agent: string;
   ip_address?: string | null;
-  timestamp: string;
+  updated_at: string;
 }
 
 interface Station {
@@ -128,7 +128,7 @@ export default function OpsDashboard() {
     selectedLocation &&
     loc.lat === selectedLocation.lat &&
     loc.lng === selectedLocation.lng &&
-    loc.timestamp === selectedLocation.timestamp
+    loc.updated_at === selectedLocation.updated_at
   );
 
   return (
@@ -258,7 +258,7 @@ export default function OpsDashboard() {
                       <Popup className="custom-popup">
                           <div className="p-2 min-w-[140px]">
                              <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">User Details</p>
-                             <p className="text-xs text-slate-700 font-medium mb-1">Time: {new Date(loc.timestamp).toLocaleTimeString()}</p>
+                             <p className="text-xs text-slate-700 font-medium mb-1">Time: {new Date(loc.updated_at).toLocaleTimeString()}</p>
                              {loc.ip_address && (
                                <p className="text-[10px] text-slate-500 font-mono mb-1">IP: {loc.ip_address}</p>
                              )}
@@ -272,7 +272,7 @@ export default function OpsDashboard() {
                       <Popup className="custom-popup">
                         <div className="p-2 min-w-[140px]">
                           <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Selected Visit</p>
-                          <p className="text-xs text-slate-700 font-medium mb-1">Time: {new Date(selectedLocation.timestamp).toLocaleTimeString()}</p>
+                          <p className="text-xs text-slate-700 font-medium mb-1">Time: {new Date(selectedLocation.updated_at).toLocaleTimeString()}</p>
                           {selectedLocation.ip_address && (
                             <p className="text-[10px] text-slate-500 font-mono mb-1">IP: {selectedLocation.ip_address}</p>
                           )}
@@ -311,7 +311,7 @@ export default function OpsDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[11px] font-black text-slate-800">{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</span>
-                        <span className="text-[10px] text-slate-400 font-bold">{new Date(loc.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        <span className="text-[10px] text-slate-400 font-bold">{new Date(loc.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                       </div>
                       {loc.ip_address && (
                         <p className="text-[10px] text-slate-500 font-mono truncate">IP: {loc.ip_address}</p>

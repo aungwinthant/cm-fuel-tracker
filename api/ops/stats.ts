@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       .select('*')
       .not('lat', 'is', null)
       .not('lng', 'is', null)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .limit(10);
     
     if (locError) {
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
       lng: Number(loc.lng),
       user_agent: loc.user_agent,
       ip_address: loc.ip_address || loc.ip || null,
-      timestamp: loc.created_at || loc.timestamp || new Date().toISOString()
+      updated_at: loc.updated_at || loc.created_at || loc.timestamp || new Date().toISOString()
     })).filter(loc => !isNaN(loc.lat) && !isNaN(loc.lng));
 
     return new Response(JSON.stringify({

@@ -36,34 +36,52 @@ export async function POST(request: Request) {
         ? body.user_agent.trim()
         : request.headers.get('user-agent') || null;
 
-    const insertPayload = {
+    const updatedAt = new Date().toISOString();
+    const buildPayload = (includeUpdatedAt: boolean, includeIp: boolean) => ({
       lat,
       lng,
       user_agent: userAgent,
-      ip_address: ipAddress,
-    };
+      ...(includeIp && ipAddress ? { ip_address: ipAddress } : {}),
+      ...(includeUpdatedAt ? { updated_at: updatedAt } : {}),
+    });
 
     let error: any = null;
 
     if (ipAddress) {
       ({ error } = await supabase
         .from('user_locations')
-        .upsert(insertPayload, { onConflict: 'ip_address' }));
+        .upsert(buildPayload(true, true), { onConflict: 'ip_address' }));
     } else {
-      ({ error } = await supabase.from('user_locations').insert({
-        lat,
-        lng,
-        user_agent: userAgent,
-      }));
+      ({ error } = await supabase
+        .from('user_locations')
+        .insert(buildPayload(true, false)));
+    }
+
+    // Fallback for schemas without updated_at column.
+    if (error && /updated_at/i.test(error.message || '')) {
+      if (ipAddress) {
+        ({ error } = await supabase
+          .from('user_locations')
+          .upsert(buildPayload(false, true), { onConflict: 'ip_address' }));
+      } else {
+        ({ error } = await supabase
+          .from('user_locations')
+          .insert(buildPayload(false, false)));
+      }
     }
 
     // Fallback for schemas without ip_address column.
     if (error && /ip_address/i.test(error.message || '')) {
-      ({ error } = await supabase.from('user_locations').insert({
-        lat,
-        lng,
-        user_agent: userAgent,
-      }));
+      ({ error } = await supabase
+        .from('user_locations')
+        .insert(buildPayload(true, false)));
+    }
+
+    // Fallback for schemas missing both updated_at and ip_address columns.
+    if (error && /updated_at/i.test(error.message || '')) {
+      ({ error } = await supabase
+        .from('user_locations')
+        .insert(buildPayload(false, false)));
     }
 
     if (error) {
