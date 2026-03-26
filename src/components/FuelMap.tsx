@@ -390,40 +390,50 @@ export default function FuelMap() {
       if (cacheResult.error && cacheResult.error.code !== 'PGRST116') throw cacheResult.error;
       if (stationsResult.error) throw stationsResult.error;
 
-      if (cacheResult.data) {
-        setReports(cacheResult.data.data.reports || []);
-        if (cacheResult.data.updated_at) setLastUpdated(new Date(cacheResult.data.updated_at));
-      }
+      const cacheData = cacheResult.data;
+      const cacheUpdatedAt = cacheData?.updated_at ? new Date(cacheData.updated_at).getTime() : 0;
+      const cacheAgeMs = cacheUpdatedAt ? Date.now() - cacheUpdatedAt : Number.POSITIVE_INFINITY;
+      const cacheStale = forceRefresh || cacheAgeMs > 5 * 60 * 1000;
 
       if (stationsResult.data) {
         setAllStations(stationsResult.data);
       }
 
-      // --- PHASE 2: Background JIT Sync ---
-      let shouldSync = forceRefresh;
-
-      if (!shouldSync) {
-        const lastUpdate = cacheResult.data?.updated_at ? new Date(cacheResult.data.updated_at).getTime() : 0;
-        const now = Date.now();
-        // If data is older than 5 mins, trigger sync in background
-        if (now - lastUpdate > 5 * 60 * 1000) {
-          shouldSync = true;
-        }
+      if (!cacheStale && cacheData) {
+        setReports(cacheData.data.reports || []);
+        if (cacheData.updated_at) setLastUpdated(new Date(cacheData.updated_at));
       }
 
-      if (shouldSync) {
-        // Fire and forget (don't await)
-        fetch('/api/cron').then(async (res) => {
+      // --- PHASE 2: JIT Sync on Visit (only when stale or missing) ---
+      if (cacheStale) {
+        let synced = false;
+        try {
+          const res = await fetch('/api/cron');
           const json = await res.json();
-          // If sync was successful and not skipped, refresh data
-          if (json.success && !json.skipped) {
-            const { data: freshCache } = await supabase.from('api_cache').select('data, updated_at').eq('id', 'fuel_data').single();
-            if (freshCache) {
-              setReports(freshCache.data.reports || []);
-              setLastUpdated(new Date(freshCache.updated_at));
-            }
+          synced = !!(json.success && !json.skipped);
+        } catch (err) {
+          console.error('JIT sync failed:', err);
+        }
+
+        if (synced) {
+          const { data: freshCache } = await supabase
+            .from('api_cache')
+            .select('data, updated_at')
+            .eq('id', 'fuel_data')
+            .single();
+
+          if (freshCache) {
+            setReports(freshCache.data.reports || []);
+            setLastUpdated(new Date(freshCache.updated_at));
+            synced = true;
           }
-        }).catch(err => console.error('Background sync failed:', err));
+        }
+
+        // Fallback to stale cache if sync fails
+        if (!synced && cacheData) {
+          setReports(cacheData.data.reports || []);
+          if (cacheData.updated_at) setLastUpdated(new Date(cacheData.updated_at));
+        }
       }
 
       const { data: historyData, error: historyError } = await supabase
