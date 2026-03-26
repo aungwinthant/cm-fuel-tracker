@@ -90,9 +90,29 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const webReq = new Request(`https://${req.headers.host}${req.url || '/api/user-location'}`, {
+  const rawHeaders = req.headers || {};
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (typeof value === 'undefined') continue;
+    if (Array.isArray(value)) headers.set(key, value.join(','));
+    else headers.set(key, String(value));
+  }
+
+  const socketIp =
+    req.socket?.remoteAddress ||
+    req.connection?.remoteAddress ||
+    null;
+
+  if (!headers.get('x-forwarded-for') && socketIp) {
+    headers.set('x-forwarded-for', socketIp);
+  }
+
+  const host = headers.get('host') || req.headers?.host || 'localhost';
+  const url = req.url || '/api/user-location';
+
+  const webReq = new Request(`https://${host}${url}`, {
     method: 'POST',
-    headers: new Headers(req.headers as Record<string, string>),
+    headers,
     body: typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {}),
   });
 
