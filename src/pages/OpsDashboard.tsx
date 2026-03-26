@@ -38,6 +38,7 @@ interface UserLocation {
   lat: number;
   lng: number;
   user_agent: string;
+  ip_address?: string | null;
   timestamp: string;
 }
 
@@ -226,13 +227,16 @@ export default function OpsDashboard() {
                     .map((loc, idx) => (
                       <Marker key={idx} position={[loc.lat, loc.lng]} icon={UserLocIcon}>
                       <Popup className="custom-popup">
-                        <div className="p-2 min-w-[140px]">
-                           <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">User Details</p>
-                           <p className="text-xs text-slate-700 font-medium mb-1">Time: {new Date(loc.timestamp).toLocaleTimeString()}</p>
-                           <p className="text-[10px] text-slate-500 italic break-all leading-tight">{loc.user_agent}</p>
-                        </div>
-                      </Popup>
-                    </Marker>
+                          <div className="p-2 min-w-[140px]">
+                             <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">User Details</p>
+                             <p className="text-xs text-slate-700 font-medium mb-1">Time: {new Date(loc.timestamp).toLocaleTimeString()}</p>
+                             {loc.ip_address && (
+                               <p className="text-[10px] text-slate-500 font-mono mb-1">IP: {loc.ip_address}</p>
+                             )}
+                             <p className="text-[10px] text-slate-500 italic break-all leading-tight">{loc.user_agent}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
                   ))}
                </MapContainer>
              </div>
@@ -259,6 +263,9 @@ export default function OpsDashboard() {
                         <span className="text-[11px] font-black text-slate-800">{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</span>
                         <span className="text-[10px] text-slate-400 font-bold">{new Date(loc.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                       </div>
+                      {loc.ip_address && (
+                        <p className="text-[10px] text-slate-500 font-mono truncate">IP: {loc.ip_address}</p>
+                      )}
                       <p className="text-[11px] text-slate-400 font-medium truncate">{loc.user_agent}</p>
                    </div>
                 </div>

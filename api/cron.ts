@@ -27,7 +27,7 @@ async function findLatestApiUrl(): Promise<string | null> {
 
 export async function GET(request: Request) {
   try {
-    // --- PHASE 0: Freshness Check (10-minute threshold) ---
+    // --- PHASE 0: Freshness Check (5-minute threshold) ---
     const { data: currentCache, error: fetchError } = await supabase
       .from('api_cache')
       .select('updated_at')
@@ -40,12 +40,12 @@ export async function GET(request: Request) {
     if (!fetchError && currentCache && !force) {
       const lastUpdate = new Date(currentCache.updated_at).getTime();
       const now = new Date().getTime();
-      const tenMinutes = 10 * 60 * 1000;
+      const fiveMinutes = 5 * 60 * 1000;
 
-      if (now - lastUpdate < tenMinutes) {
+      if (now - lastUpdate < fiveMinutes) {
         return new Response(JSON.stringify({ 
           success: true, 
-          message: 'Data is still fresh (within 10 mins)', 
+          message: 'Data is still fresh (within 5 mins)', 
           skipped: true 
         }), {
           status: 200,

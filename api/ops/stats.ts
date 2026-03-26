@@ -59,6 +59,7 @@ export async function GET(request: Request) {
       lat: Number(loc.lat),
       lng: Number(loc.lng),
       user_agent: loc.user_agent,
+      ip_address: loc.ip_address || loc.ip || null,
       timestamp: loc.created_at || loc.timestamp || new Date().toISOString()
     })).filter(loc => !isNaN(loc.lat) && !isNaN(loc.lng));
 

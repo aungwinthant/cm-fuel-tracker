@@ -269,13 +269,17 @@ export default function FuelMap() {
           const { latitude, longitude } = position.coords;
           setUserLocation([latitude, longitude]);
 
-          // Log user location for ops dashboard to see
-          supabase.from('user_locations').insert({
-            lat: latitude,
-            lng: longitude,
-            user_agent: navigator.userAgent
-          }).then(({ error }) => {
-            if (error) console.error('Error logging location:', error);
+          // Log user location for ops dashboard to see (server captures IP)
+          fetch('/api/user-location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: latitude,
+              lng: longitude,
+              user_agent: navigator.userAgent,
+            }),
+          }).catch((error) => {
+            console.error('Error logging location:', error);
           });
         },
         (error) => {
@@ -401,8 +405,8 @@ export default function FuelMap() {
       if (!shouldSync) {
         const lastUpdate = cacheResult.data?.updated_at ? new Date(cacheResult.data.updated_at).getTime() : 0;
         const now = Date.now();
-        // If data is older than 10 mins, trigger sync in background
-        if (now - lastUpdate > 10 * 60 * 1000) {
+        // If data is older than 5 mins, trigger sync in background
+        if (now - lastUpdate > 5 * 60 * 1000) {
           shouldSync = true;
         }
       }
