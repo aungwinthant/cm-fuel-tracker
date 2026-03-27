@@ -50,6 +50,7 @@ interface Station {
   brand: string;
   lat: number;
   lng: number;
+  updated_at?: string;
 }
 
 interface Report {
@@ -147,20 +148,20 @@ const getStationStatus = (report?: Report): 'available' | 'empty' | 'low' | 'unk
   return 'low';
 };
 
-const getBrandIcon = (brand: string, status: 'available' | 'empty' | 'low' | 'unknown' | 'no_data') => {
+const getBrandIcon = (brand: string, status: 'available' | 'empty' | 'low' | 'unknown' | 'no_data', showUpdated = false) => {
   const logoUrl = brandLogos[brand?.toLowerCase()];
   
-  let indicatorColor = 'bg-gray-400';
-  let opacity = 'opacity-100';
-  let grayscale = '';
+  let indicatorColor = '#9ca3af';
+  let opacity = 1;
+  let grayscale = 'none';
   
-  if (status === 'available') indicatorColor = 'bg-green-500';
-  else if (status === 'empty') indicatorColor = 'bg-red-500';
-  else if (status === 'low') indicatorColor = 'bg-yellow-500';
+  if (status === 'available') indicatorColor = '#22c55e';
+  else if (status === 'empty') indicatorColor = '#ef4444';
+  else if (status === 'low') indicatorColor = '#f59e0b';
   else if (status === 'no_data') {
-    indicatorColor = 'bg-gray-300';
-    opacity = 'opacity-60';
-    grayscale = 'grayscale';
+    indicatorColor = '#d1d5db';
+    opacity = 0.6;
+    grayscale = 'grayscale(100%)';
   }
 
   const innerContent = logoUrl 
@@ -168,19 +169,22 @@ const getBrandIcon = (brand: string, status: 'available' | 'empty' | 'low' | 'un
     : `<div class="w-full h-full flex items-center justify-center bg-slate-50 text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22L15 22"/><path d="M4 9L14 9"/><path d="M14 22L14 11"/><path d="M15 6C15 6 17 6 18 5C19 4 21 4 21 4"/><path d="M18 11V22"/><path d="M15 15L18 12"/><path d="M4 18V5C4 3.9 4.9 3 6 3H12C13.1 3 14 3.9 14 5V18"/><circle cx="9" cy="13" r="2"/></svg></div>`;
 
   const html = `
-    <div class="relative w-8 h-8 ${opacity} ${grayscale} transition-all duration-300">
-      <div class="w-full h-full bg-white rounded-full shadow-md border-2 border-white flex items-center justify-center overflow-hidden">
-        ${innerContent}
+    <div style="position:relative;width:96px;height:32px;opacity:${opacity};filter:${grayscale};">
+      ${showUpdated ? '<div style="position:absolute;left:0;top:50%;transform:translateY(-50%);padding:2px 6px;border-radius:999px;background:#10b981;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.25);z-index:2;pointer-events:none;">updated</div>' : ''}
+      <div style="position:absolute;right:0;top:0;width:32px;height:32px;">
+        <div style="width:32px;height:32px;background:#fff;border-radius:999px;box-shadow:0 4px 8px rgba(0,0,0,0.15);border:2px solid #fff;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          ${innerContent}
+        </div>
+        <div style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:999px;border:2px solid #fff;background:${indicatorColor};box-shadow:0 1px 2px rgba(0,0,0,0.25);"></div>
       </div>
-      <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${indicatorColor} shadow-sm"></div>
     </div>
   `;
 
   return L.divIcon({
     html,
     className: '',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [96, 32],
+    iconAnchor: [80, 16],
   });
 };
 
@@ -376,6 +380,25 @@ export default function FuelMap() {
     if (!selectedBrand) return mappedStations;
     return mappedStations.filter(s => s.brand === selectedBrand);
   }, [mappedStations, selectedBrand]);
+
+  const isStationUpdatedInLastCrawl = (station: Station, crawlFinishedAt: Date | null) => {
+    if (!crawlFinishedAt) return false;
+    const crawlTime = crawlFinishedAt.getTime();
+    const windowMs = 15 * 60 * 1000;
+
+    const reportUnix = station.report?.ts_unix;
+    if (typeof reportUnix === 'number') {
+      const reportMs = reportUnix > 1_000_000_000_000 ? reportUnix : reportUnix * 1000;
+      if (!Number.isNaN(reportMs) && Math.abs(reportMs - crawlTime) <= windowMs) {
+        return true;
+      }
+    }
+
+    if (!station.updated_at) return false;
+    const stationTime = new Date(station.updated_at).getTime();
+    if (Number.isNaN(stationTime)) return false;
+    return Math.abs(stationTime - crawlTime) <= windowMs;
+  };
 
   const fetchData = async (forceRefresh = false) => {
     try {
@@ -629,7 +652,11 @@ export default function FuelMap() {
               <Marker
                 key={station.id}
                 position={[station.lat, station.lng]}
-                icon={getBrandIcon(station.brand, getStationStatus(station.report))}
+                icon={getBrandIcon(
+                  station.brand,
+                  getStationStatus(station.report),
+                  isStationUpdatedInLastCrawl(station, lastUpdated)
+                )}
               >
                 <Popup className="custom-popup">
                   <div className="p-2 min-w-[240px] font-sans">
